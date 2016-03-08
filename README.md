@@ -1,4 +1,2 @@
 # neventGeneratorPy
-neventGeneratorPy
-=================
 
