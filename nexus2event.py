@@ -52,31 +52,25 @@ def loadAMOR(source) :
 
 
 
-def header(src):
+def header(pulseID=1234,st=1457097133):
     dataHeader = {
         "htype":"sinq-1.0",
         "mode":"pos",
         "pid":0,
         "hws":{"error":0,"overflow":0,"abc":432,"state1":1092,"state2":1092},
-        "st":1457097133,
-        "ts":123456789,
+        "st":st,
+        "ts":pulseID,
         "tr":10000,
-        "ds":[{"ts":32,"cnt":1,"rok":1,"bsy":1,"sev":1,"pad":12,"x":16,"y":16},296]
-        }
+        "ds":[{"ts":32,"cnt":1,"rok":1,"bsy":1,"sev":1,"pad":12,"x":16,"y":16},296]}
     return dataHeader
 
 
-class loadNeXus2event:
-    def __init__(self,source):
-        self.source = source
-        self.data = self.load()
+def loadNeXus2event(source):
 
-    def load(self):
-        if not os.path.isfile(self.source) :
-            raise IOError
+    if not os.path.isfile(source) :
+        raise IOError
 
-        print "Loading from file " + self.source
-        return header(self.source),loadAMOR(self.source)
-
+    print "Loading from file " + source
+    return loadAMOR(source)
 
 

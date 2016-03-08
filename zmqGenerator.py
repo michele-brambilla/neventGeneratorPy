@@ -8,6 +8,8 @@ import numpy
 import time
 
 import zmq
+import twisted
+from twisted.internet.defer import inlineCallbacks
 
 def dummy(source):
     dataHeader = header(source)
@@ -15,7 +17,7 @@ def dummy(source):
     data["ts"]=1234
     data["x"] = 23
     data["y"] = 4
-    return dataHeader,data
+    return data
 
 
 def usage() :
@@ -31,12 +33,14 @@ def sendEvent(socket,data,h) :
 #    print data.itemsize
     socket.send(data)
 
-def main(argv):
+def main(argv,mock=False):
     source = argv[1]
     port = argv[2]
 
-    dataHeader,data = loadNeXus2event(source).data
-#    dataHeader,data = dummy(source)
+    if not mock:
+        data = loadNeXus2event(source)
+    else:
+        data = dummy(source)
 
     if len(sys.argv) > 3:
         data = multiplyNEventArray(data,int(argv[3]))
@@ -47,24 +51,38 @@ def main(argv):
     zmq_socket = context.socket(zmq.PUSH)
     zmq_socket.bind("tcp://127.0.0.1:"+port)
     
-    count=0
+    global count
+    count = 0
     ctime=time.time()
+    size = data.size*eventDt.itemsize+sys.getsizeof(header())
+    pulseID=0
 
     while(True):
         itime = time.time()
 
-        zmq_socket.send_json(dataHeader)
-        zmq_socket.send(data)
+        dataHeader=header(pulseID,itime)
 
-        print remaining
+#        @inlineCallbacks
+        def send_data():
+            global count
+            zmq_socket.send_json(dataHeader)
+            zmq_socket.send(data)
+            count += 1
+        send_data()
+
+        elapsed = time.time() - itime
+        remaining = 1./14-elapsed
+
         if remaining > 0:
             time.sleep (remaining)
 
-        count=count+1
+        pulseID += 1
+
         if time.time()-ctime > 10 :
-            print count
+            print "Sent ",count," events @ ",size*count/(10.*1e6)," MB/s"
             count = 0
             ctime = time.time()
+
 
 
 if __name__ == "__main__":
