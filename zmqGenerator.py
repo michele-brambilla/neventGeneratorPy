@@ -8,12 +8,13 @@ import os
 import errno
 import numpy
 import time
+import threading
 
 import zmq
 import twisted
-from twisted.internet.defer import inlineCallbacks
-
-
+from twisted.internet.protocol import Factory
+from twisted.protocols.basic import LineReceiver
+from twisted.internet import reactor
 
 def usage() :
     print ""
@@ -22,17 +23,42 @@ def usage() :
     print ""
     sys.exit(-1)
 
-def sendEvent(socket,data,h) :
-#    print h
-    socket.send_json(h)
-#    print data.itemsize
-    socket.send(data)
+#def sendEvent(socket,data,h) :
+##    print h
+#    socket.send_json(h)
+##    print data.itemsize
+#    socket.send(data)
+
+
+class generatorSource(LineReceiver):
+
+    def __init__(self):
+        self.status = False
+        
+    def connectionMade(self):
+        self.sendLine("Type run to start counter")
+        self.sendLine("Type pause to stop counter")
+        
+    def connectionLost(self, reason):
+        print "Disconnetting controller"
+        
+    def lineReceived(self, line):
+        print line
+        if line == "run" :
+            self.status = True
+            self.factory.run()
+        if line == "pause" :
+            self.status = False
+            self.factory.pause()
+        self.sendLine(str(self.factory.count))
 
 
 
-class generatorSource:
+class generatorSourceFactory(Factory):
+    protocol = generatorSource
+#class generatorSourceFactory:
 
-    def __init__ (self,source,port,multiplier,mock=False):
+    def __init__ (self,source,port,multiplier,mock=False,status=False):
         self.source = source
         self.port = port
         self.multiplier = multiplier
@@ -40,7 +66,7 @@ class generatorSource:
         self.data = self.load(mock)
         self.socket = self.connect()
         self.count = 0
-        self.run()
+        self.status = status
 
     def load(self,mock):
         if not mock:
@@ -62,15 +88,33 @@ class generatorSource:
 
     def connect(self):
         zmq_socket = self.context.socket(zmq.PUSH)
-        zmq_socket.bind("tcp://127.0.0.1:"+self.port)
+        zmq_socket.bind("tcp://127.0.0.1:1234") #"+self.port)
         return zmq_socket
 
-    def run(self):
+    def run(self) :
+        if (self.status == False) :
+            print "started counting"
+            self.status = True
+            thread = threading.Thread(target=self.start)
+            thread.daemon = True
+            thread.start()
+        else :
+            print "Nothing to do, I'm already counting!"
+            
+    def pause(self) :
+        if (self.status == True) :
+            print "paused counting"
+            self.status = False
+        else :
+            print "Nothing to do, I'm already in pause!"
+
+    def start(self):
+        print "called start"
         data = self.data
         ctime=time.time()
         pulseID=0
         
-        while(True):
+        while True:
             itime = time.time()
             dataHeader=header(pulseID,itime)
             
@@ -78,8 +122,9 @@ class generatorSource:
                 socket.send_json(head)
                 socket.send(self.data)
                 self.count += 1
-                
-            send_data(self.socket,dataHeader)
+
+            if (self.status == True):
+                send_data(self.socket,dataHeader)
 
             elapsed = time.time() - itime
             remaining = 1./14-elapsed
@@ -108,8 +153,9 @@ def main(argv,mock=False):
     if len(sys.argv) > 3:
         multiplier = argv[3]
 
-    generatorSource(source,port,multiplier,mock=True)
-    
+#    generatorSourceFactory(source,port,multiplier,mock=True)
+    reactor.listenTCP(8123, generatorSourceFactory(source,port,multiplier,mock=True,status=False))
+    reactor.run()
 #
 #    if not mock:
 #        data = loadNeXus2event(source)
