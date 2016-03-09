@@ -1,5 +1,3 @@
-#ifndef _ZMQGENERATOR_H
-#define _ZMQGENERATOR_H
 from nexus2event import *
 from neventarray import *
 
@@ -22,12 +20,6 @@ def usage() :
     print "\tpython "+sys.argv[0]+" <nexus file> <port> (<multiplier>)"
     print ""
     sys.exit(-1)
-
-#def sendEvent(socket,data,h) :
-##    print h
-#    socket.send_json(h)
-##    print data.itemsize
-#    socket.send(data)
 
 
 class generatorSource(LineReceiver):
@@ -56,7 +48,6 @@ class generatorSource(LineReceiver):
 
 class generatorSourceFactory(Factory):
     protocol = generatorSource
-#class generatorSourceFactory:
 
     def __init__ (self,source,port,multiplier,mock=False,status=False):
         self.source = source
@@ -88,7 +79,7 @@ class generatorSourceFactory(Factory):
 
     def connect(self):
         zmq_socket = self.context.socket(zmq.PUSH)
-        zmq_socket.bind("tcp://127.0.0.1:1234") #"+self.port)
+        zmq_socket.bind("tcp://127.0.0.1:1234"+self.port)
         return zmq_socket
 
     def run(self) :
@@ -153,63 +144,11 @@ def main(argv,mock=False):
     if len(sys.argv) > 3:
         multiplier = argv[3]
 
-#    generatorSourceFactory(source,port,multiplier,mock=True)
     reactor.listenTCP(8123, generatorSourceFactory(source,port,multiplier,mock=True,status=False))
     reactor.run()
-#
-#    if not mock:
-#        data = loadNeXus2event(source)
-#    else:
-#        data = dummy(source)
-#
-#    if len(sys.argv) > 3:
-#        data = multiplyNEventArray(data,int(argv[3]))
-#
-#    print "Ready to send data"
-#
-#    context = zmq.Context()
-#    zmq_socket = context.socket(zmq.PUSH)
-#    zmq_socket.bind("tcp://127.0.0.1:"+port)
-#    
-#    global count
-#    count = 0
-#    ctime=time.time()
-#    size = data.size*eventDt.itemsize+sys.getsizeof(header())
-#    pulseID=0
-#
-#    while(True):
-#        itime = time.time()
-#
-#        dataHeader=header(pulseID,itime)
-#
-##        @inlineCallbacks
-#        def send_data():
-#            global count
-#            zmq_socket.send_json(dataHeader)
-#            zmq_socket.send(data)
-#            count += 1
-#        send_data()
-#
-#        elapsed = time.time() - itime
-#        remaining = 1./14-elapsed
-#
-#        if remaining > 0:
-#            time.sleep (remaining)
-#
-#        pulseID += 1
-#
-#        if time.time()-ctime > 10 :
-#            print "Sent ",count," events @ ",size*count/(10.*1e6)," MB/s"
-#            count = 0
-#            ctime = time.time()
-#
-
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         usage()
     main(sys.argv)
 
-
-
-#endif //ZMQGENERATOR_H
