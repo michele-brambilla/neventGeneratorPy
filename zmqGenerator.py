@@ -6,6 +6,7 @@ import errno
 import numpy
 import time
 import threading
+import psutil
 
 import zmq
 import twisted
@@ -54,12 +55,21 @@ class generatorSourceFactory(Factory):
     def __init__ (self,source,port,multiplier,mock=False,status=False):
         self.source = source
         self.port = port
+
         self.multiplier = multiplier
-        self.context = zmq.Context()
-        self.socket = self.connect()
-        self.count = 0
         self.status = status
         self.data = self.load(mock)
+
+        self.context = zmq.Context()
+#        mem = psutil.virtual_memory().available
+#
+#        print self.data.size*event_t.itemsize/(1024.*1024.),"MB/message"
+#        print mem/(1024.*1024.),"MB"
+#        prin
+
+        self.socket = self.connect()
+
+        self.count = 0
         if (self.status == True):
             self.status = False
             self.run()
@@ -116,7 +126,7 @@ class generatorSourceFactory(Factory):
             dataHeader=header(pulseID,itime)
             
             def send_data(socket,head):
-                socket.send_json(head)
+                socket.send_json(head,zmq.SNDMORE)
                 socket.send(self.data)
                 self.count += 1
 
