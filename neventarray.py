@@ -1,6 +1,6 @@
 import numpy as np
 
-eventDt = np.dtype([("ts",np.uint32),
+event_t = np.dtype([("ts",np.uint32),
                     ("sync",np.uint16),
                     ("x",np.uint16),
                     ("y",np.uint16)])

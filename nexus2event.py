@@ -3,7 +3,6 @@ import os
 import errno
 
 import numpy as np
-#from collections import namedtuple
 
 import nxs
 import neventarray
@@ -12,7 +11,6 @@ import neventarray
 def loadAMOR(source) :
     f = nxs.open(source,'r')
 
-    # retrieve data
     f.openpath("entry1/AMOR/area_detector/data")
     dim,datatype= f.getinfo()
     size = np.prod(dim)
@@ -25,31 +23,98 @@ def loadAMOR(source) :
     f.close()
 
     nEvents = np.sum(data)
-    signal = np.empty(nEvents,dtype=neventarray.eventDt)
-#    timeStamp = np.empty(nEvents)
-#    signal = np.append(signal,[1234,0,1,2])
+    signal = np.empty(nEvents,dtype=neventarray.event_t)
 
     nEv = 0
     detID = 0
     for row in range(dim[0]):
         for col in range(dim[1]):
-#            detID=detID+1
             for it in range(dim[2]):
                 events = data[row][col][it]
                 if events > 0:
                     signal[nEv:nEv+events]["ts"] = round(tof[it]/10.)
                     signal[nEv:nEv+events]["x"] = row
                     signal[nEv:nEv+events]["y"] = col
-#                    detectorID[nEv:nEv+events] = detID
-#                    timeStamp[nEv:nEv+events] = round(tof[it]/10.)
                     nEv = nEv+events
 
     if not signal.shape[0] == nEv:
         raise Exception("Error in reading NeXus data: wrong number of events",nEv)
 
-#    return NEventArray(detectorID,timeStamp)
     return signal
 
+
+
+
+
+
+############################
+def loadFOCUS(source) :
+    f = nxs.open(source,'r')
+
+    f.openpath("entry1/FOCUS/merged/counts")
+    dim,datatype= f.getinfo()
+    size = np.prod(dim)
+    data = f.getdata()
+    f.close()
+
+    f = nxs.open(source,'r')
+    f.openpath("entry1/FOCUS/merged/time_binning")
+    tof = f.getdata()
+    f.close()
+
+    nEvents = np.sum(data)
+    signal = np.empty(nEvents,dtype=neventarray.event_t)
+
+    nEv = 0
+    detID = 0
+    for row in range(dim[0]):
+        for it in range(dim[1]):
+            events = data[row][it]
+            if events > 0:
+                signal[nEv:nEv+events]["x"] = row
+                signal[nEv:nEv+events]["y"] = it
+                nEv = nEv+events
+
+    if not signal.shape[0] == nEv:
+        raise Exception("Error in reading NeXus data: wrong number of events",nEv)
+
+    return signal
+##########################
+
+
+def loadRITA2(source) :
+
+    f = nxs.open(source,'r')
+
+    f.openpath("entry1/RITA-2/detector/counts")
+    dim,datatype= f.getinfo()
+    size = np.prod(dim)
+    data = f.getdata()
+    f.close()
+
+    # just a guess
+    f = nxs.open(source,'r')
+    f.openpath("entry1/control/time")
+    tof = f.getdata()
+    f.close()
+
+    nEvents = np.sum(data)
+    signal = np.empty(nEvents,dtype=neventarray.event_t)
+
+    nEv = 0
+    detID = 0
+
+    for row in range(dim[1]):
+        for col in range(dim[2]):
+            for it in range(dim[0]):
+                events = data[it][row][col]
+                if events > 0:
+                    signal[nEv:nEv+events]["ts"] = round(tof[it]/10.)
+                    signal[nEv:nEv+events]["x"] = row
+                    signal[nEv:nEv+events]["y"] = col
+                    nEv = nEv+events
+
+    return signal
 
 
 def header(pulseID=1234,st=1457097133):
@@ -71,6 +136,9 @@ def loadNeXus2event(source):
         raise IOError
 
     print "Loading from file " + source
-    return loadAMOR(source)
+    if "amor" in source:
+        return loadAMOR(source)
+    if "rita" in source:
+        return loadRITA2(source)
 
-
+    raise NotImplementedError("Detector not implemented")

@@ -27,7 +27,7 @@ class generatorReceiver :
 
             dataHeader = self.socket.recv_json()
             buf = self.socket.recv(copy=True)
-            data = np.frombuffer(buffer(buf),dtype=eventDt)
+            data = np.frombuffer(buffer(buf),dtype=event_t)
 
             timestamp = dataHeader["st"]
             if not int(dataHeader["ts"]) == (pulseID+1):
@@ -36,7 +36,7 @@ class generatorReceiver :
             self.count = self.count+1
 
             if time.time()-ctime > 10 :
-                size = data.size*eventDt.itemsize+sys.getsizeof(dataHeader)
+                size = data.size*event_t.itemsize+sys.getsizeof(dataHeader)
                 print "Received",self.count,"events (",size/1.e6,"MB) @ ",size*self.count/(10.*1e6)," MB/s"
                 self.count = 0
                 ctime = time.time()
@@ -59,7 +59,7 @@ def main(argv):
 #
 #        dataHeader = readerSocket.recv_json()
 #        buf = readerSocket.recv(copy=True)
-#        data = np.frombuffer(buffer(buf),dtype=eventDt)
+#        data = np.frombuffer(buffer(buf),dtype=event_t)
 #
 #        timestamp = dataHeader["st"]
 #        if not int(dataHeader["ts"]) == (pulseID+1):
@@ -69,7 +69,7 @@ def main(argv):
 #
 #        if time.time()-ctime > 10 :
 ##            size = sys.getsizeof(dataHeader)
-#            size = data.size*eventDt.itemsize+sys.getsizeof(dataHeader)
+#            size = data.size*event_t.itemsize+sys.getsizeof(dataHeader)
 #            print "Received",count,"events (",size/1.e6,"MB) @ ",size*count/(10.*1e6)," MB/s"
 #            count = 0
 #            ctime = time.time()
