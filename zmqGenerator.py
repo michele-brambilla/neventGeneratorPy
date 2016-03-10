@@ -5,14 +5,11 @@ import sys, os, getopt
 import errno
 import numpy
 import time
-import threading
-import psutil
 
 import zmq
 import twisted
-from twisted.internet.protocol import Factory
-from twisted.protocols.basic import LineReceiver
-from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks
+
 
 def usage() :
     print ""
@@ -21,59 +18,21 @@ def usage() :
     print ""
     print "-h: this help"
     print "-m: use fake data"
-    print "-r: don't wait for external signal to start send data"
     print ""
 
 
-class generatorSource(LineReceiver):
 
-    def __init__(self):
-        self.status = False
-        
-    def connectionMade(self):
-        self.sendLine("Type run to start counter")
-        self.sendLine("Type pause to stop counter")
-        
-    def connectionLost(self, reason):
-        print "Disconnetting controller"
-        
-    def lineReceived(self, line):
-        print line
-        if line == "run" :
-            self.status = True
-            self.factory.run()
-        if line == "pause" :
-            self.status = False
-            self.factory.pause()
-        self.sendLine(str(self.factory.count))
+class generatorSource:
 
-
-
-class generatorSourceFactory(Factory):
-    protocol = generatorSource
-
-    def __init__ (self,source,port,multiplier,mock=False,status=False):
+    def __init__ (self,source,port,multiplier,mock=False):
         self.source = source
         self.port = port
-
         self.multiplier = multiplier
-        self.status = status
-        self.data = self.load(mock)
-
         self.context = zmq.Context()
-#        mem = psutil.virtual_memory().available
-#
-#        print self.data.size*event_t.itemsize/(1024.*1024.),"MB/message"
-#        print mem/(1024.*1024.),"MB"
-#        prin
-
+        self.data = self.load(mock)
         self.socket = self.connect()
-
         self.count = 0
-        if (self.status == True):
-            self.status = False
-            self.run()
-
+        self.run()
 
     def load(self,mock):
         if not mock:
@@ -84,7 +43,6 @@ class generatorSourceFactory(Factory):
         if self.multiplier > 1:
             data = multiplyNEventArray(data,int(self.multiplier))
 
-        print "ready to run"
         return data
 
     def dummy(self):
@@ -99,39 +57,21 @@ class generatorSourceFactory(Factory):
         zmq_socket.bind("tcp://127.0.0.1:"+self.port)
         return zmq_socket
 
-    def run(self) :
-        if (self.status == False) :
-            print "started counting"
-            self.status = True
-            thread = threading.Thread(target=self.start)
-            thread.daemon = True
-            thread.start()
-        else :
-            print "Nothing to do, I'm already counting!"
-            
-    def pause(self) :
-        if (self.status == True) :
-            print "paused counting"
-            self.status = False
-        else :
-            print "Nothing to do, I'm already in pause!"
-
-    def start(self):
+    def run(self):
         data = self.data
         ctime=time.time()
         pulseID=0
         
-        while True:
+        while(True):
             itime = time.time()
             dataHeader=header(pulseID,itime)
             
             def send_data(socket,head):
-                socket.send_json(head,zmq.SNDMORE)
+                socket.send_json(head)
                 socket.send(self.data)
                 self.count += 1
-
-            if (self.status == True):
-                send_data(self.socket,dataHeader)
+                
+            send_data(self.socket,dataHeader)
 
             elapsed = time.time() - itime
             remaining = 1./14-elapsed
@@ -152,7 +92,8 @@ class generatorSourceFactory(Factory):
 
 
 
-def main(argv,mock=False,status=False):
+def main(argv,mock=False):
+
     source = argv[0]
     port = argv[1]
 
@@ -160,12 +101,13 @@ def main(argv,mock=False,status=False):
     if len(argv) > 2:
         multiplier = argv[2]
 
-    reactor.listenTCP(8123, generatorSourceFactory(source,port,multiplier,mock,status))
-    reactor.run()
+    generatorSource(source,port,multiplier)
+    
+
 
 if __name__ == "__main__":
     try:
-        opts,args = getopt.getopt(sys.argv[1:], "hmr",["help","mock","run"])
+        opts,args = getopt.getopt(sys.argv[1:], "hm",["help","mock"])
     except getopt.GetoptError as err:
         print str(err)
         usage()
@@ -176,15 +118,11 @@ if __name__ == "__main__":
         exit(2)
     
     mock = False
-    run = False
     for o,a in opts:
         if o in ("-h","--help"):
             usage()
             sys.exit()
         if o in ("-m","--mock"):
             mock = True
-        if o in ("-r","--run"):
-            run = True
             
-    main(args,mock,run)
-
+    main(args,mock)
