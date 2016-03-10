@@ -8,13 +8,17 @@
 #----------------------------------------------------------------------
 from twisted.internet import reactor, protocol
 from twisted.protocols.basic import LineReceiver
-import time
-import sys
 
 import zmq
+
+import time
+import sys,os
+from datetime import datetime
+import threading
+import json
+
 from nexus2event import *
 from neventarray import *
-import threading
 
 class EL737Controller(LineReceiver):
     def __init__(self):
@@ -25,7 +29,7 @@ class EL737Controller(LineReceiver):
         self.starttime = time.time()
         self.endtime = time.time()
         self.counting = False
-        self.mypaused = False
+        self.mypaused = True
         self.pausestart = 0
         self.pausedTime = 0.
         self.threshold = 0
@@ -34,9 +38,11 @@ class EL737Controller(LineReceiver):
         self.context = zmq.Context()
         self.socket = []
         self.source = []
-        self.multiplier = 1
-        self.Stop = False
+        self.size = 0
+        self.count = 0
         self.dtype = event_t
+        self.Stop = False
+        self.of = []
 
     def write(self, data):
         print "transmitted:", data
@@ -64,28 +70,24 @@ class EL737Controller(LineReceiver):
 
         if self.remotestate == 0:
             if data.startswith('init'):
-                """Enbles the event generator. Syntax:
+                """Enbles the event reader. Syntax:
 
-                >>> init <NeXus file> <port> (<multiplier>)
+                >>> init <address>:<port>
                 
                 Args:
-                NeXus file (str):  the NeXus file from which extract data
+                port       (int):  tcp/ip address to listen for
                 port       (int):  the port to use for zmq communications
-                multiplier (int):  allows to produce replicas of raw data to mimic a larger message
                 
-                It does not start the generation, simply sets up the
-                environment. To run the event generation use >>> run
+                It does not start the reader, simply sets up the
+                environment. To run the reader use >>> run
                 
-                >>> init ../neventGenerator/rita22012n006190.hdf 1234 100
+                >>> init tcp://127.0.0.1:1234
 
                 """
-                self.socket = self.context.socket(zmq.PUSH)
-                self.socket.bind("tcp://127.0.0.1:"+data.split(" ")[2])
-                self.write("zmq connected on port "+data.split(" ")[2])
+                self.socket = self.context.socket(zmq.PULL)
+                self.socket.connect(data.split(" ")[1])
+                self.write("zmq connected to "+data.split(" ")[1])
                 self.write("\r")
-                self.source = data.split(" ")[1]
-                if len(data.split(" ")) > 3:
-                    self.multiplier = int(data.split(" ")[3])
                 self.remotestate = 1
             return
 
@@ -105,7 +107,7 @@ class EL737Controller(LineReceiver):
                 self.write("\r")
             else:
                 if data.startswith("run"):
-                    """Runs the event generator. Syntax:
+                    """Runs the event reader. Syntax:
 
                     >>> run
                     Args:
@@ -117,12 +119,30 @@ class EL737Controller(LineReceiver):
                     >>> run
 
                     """
+                    self.counting = True
+                    self.mypaused = False
+
                     self.remotestate = 2
                     thread = threading.Thread(target=self.start)
                     thread.daemon = True
                     thread.start()
                 else:
-                    self.write("?loc\r")
+                    if data.startswith("debug"):
+                        """Runs the event generator in debug mode. Syntax:
+
+                        >>> debug
+
+                        """
+                        self.counting = True
+                        self.mypaused = False
+                        self.dtype = debug_t
+                        self.of = open("dump_"+datetime.now().strftime("%Y-%m-%dT%H:%M:%S")+".txt","w")
+                        self.remotestate = 2
+                        thread = threading.Thread(target=self.start)
+                        thread.daemon = True
+                        thread.start()
+                    else:
+                        self.write("?loc\r")
             return
             
 
@@ -240,53 +260,54 @@ class EL737Controller(LineReceiver):
            self.write('?2\r')
 
 
+    def stats(self) :
+        while not self.Stop:
+
+            time.sleep(10)
+            print "Received",self.count,"events (",self.size/1.e6,"MB) @ ",self.size*self.count/(10.*1e6)," MB/s"
+            self.count = 0
+
+
     def start(self):
-        print "generator started"
-        data = loadNeXus2event(self.source)
 
-        if self.multiplier > 1:
-            data = multiplyNEventArray(data,int(self.multiplier))
-
-        ctime=time.time()
         pulseID=0
-        count = 0
+        
+        thread = threading.Thread(target=self.stats)
+        thread.daemon = True
+        thread.start()
         
         while not self.Stop:
-            itime = time.time()
-            dataHeader=header(pulseID,itime)
-            
-            def send_data(data,socket,head):
-                socket.send_json(head,zmq.SNDMORE)
-                socket.send(data)
 
-            if self.mypaused == False:
-                send_data(data,self.socket,dataHeader)
-                count += 1
-
-            elapsed = time.time() - itime
-            remaining = 1./14-elapsed
-
-            if remaining > 0:
-                time.sleep (remaining)
-
-            pulseID += 1
-
-            if time.time()-ctime > 10 :
-                size = (data.size*self.dtype.itemsize+
+            if not self.mypaused:
+                dataHeader = self.socket.recv_json()
+                buf = self.socket.recv(copy=True)
+                data = np.frombuffer(buffer(buf),dtype=event_t)
+                if self.dtype == debug_t:
+                    self.of.write(json.dumps(dataHeader))
+                    for i in data:
+                        self.of.write(str(i)+"\n")
+                    self.of.flush()
+                    os.fsync(self.of.fileno())
+                self.count += 1
+                self.size = (data.size*event_t.itemsize+
                         sys.getsizeof(dataHeader))
 
-                print "Sent ",count," events @ ",size*count/(10.*1e6)," MB/s"
-                count = 0
-                ctime = time.time()
+                if dataHeader["ts"] > pulseID:
+                    while not int(dataHeader["ts"]) == (pulseID+1):
+                        print "Lost pulse ",pulseID
+                        pulseID += 1
+                if dataHeader["ts"] < pulseID:
+                        pulseID = dataHeader["ts"]
 
-
-
+            pulseID += 1
+        print "execution stopped"
+        thread.stop()
 
 def main(argv):
     if len(argv) > 1:
         port = int(argv[1])
     else:
-        port = 62001
+        port = 62000
 
     factory = protocol.ServerFactory()
     factory.protocol = EL737Controller
