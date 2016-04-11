@@ -43,6 +43,9 @@ class generatorSource:
         if self.multiplier > 1:
             data = multiplyNEventArray(data,int(self.multiplier))
 
+        for i in data[0:100]:
+            print i["ts"], i["sync"], i["x"], i["y"]
+
         return data
 
     def dummy(self):
@@ -55,16 +58,20 @@ class generatorSource:
     def connect(self):
         zmq_socket = self.context.socket(zmq.PUSH)
         zmq_socket.bind("tcp://127.0.0.1:"+self.port)
+        zmq_socket.setsockopt(zmq.SNDHWM, 100)
         return zmq_socket
 
     def run(self):
         data = self.data
         ctime=time.time()
         pulseID=0
-        
+
+        print sys.getsizeof(data)
+        print data.size*event_t.itemsize/(1024.*1024.),"MB"
+
         while(True):
             itime = time.time()
-            dataHeader=header(pulseID,itime)
+            dataHeader=header(pulseID,itime,data.shape[0])
             
             def send_data(socket,head):
                 socket.send_json(head)

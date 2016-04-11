@@ -1,12 +1,25 @@
 # neventGeneratorPy
 
-Python implementation of neventGenerator. Usage:
+Python implementation of neventGenerator. Works with both non triggered generator/reader:
 
 (server side)   `zmqGenerator.py <NeXus file> <port>`
 (receiver side) `zmqReader.py tcp://<ip>:<port>`
-(trigger side)  `telnet <ip> 8123 -> run/pause`
 
-**zmqGenerator** loads <NeXus file> and translate in event format (or generates
-a mock event) and wait for trigger to send *run* message. **zmqReader** keeps
-listening for messages
+and triggered:
+
+(server side)   `el737counter.py <port (default=62001)>`
+(receiver side) `el737counter_recv.py <port  (default=62000)>`
+(trigger)       `telnet <ip> <port> -> run/pause`
+
+(or any combination)
+
+`el737counter.py` requires to be initiliased and executed with the followings:
+
+`init <NeXus file> <port> <multiplier>`
+`run`
+
+`el737counter_recv.py` requires to be initiliased and executed with the followings:
+
+`init tcp://<address>:<port>`
+`run`
 

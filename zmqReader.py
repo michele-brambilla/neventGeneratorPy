@@ -40,11 +40,13 @@ class generatorReceiver :
             dataHeader = self.socket.recv_json()
             buf = self.socket.recv(copy=True)
             data = np.frombuffer(buffer(buf),dtype=event_t)
+            for i in data:
+                print i["ts"], i["sync"], i["x"], i["y"]
 
             timestamp = dataHeader["st"]
-            if not int(dataHeader["ts"]) == (pulseID+1):
-                print "Lost pulse ",dataHeader["ts"]
-            pulseID = int(dataHeader["ts"])
+            if not int(dataHeader["pid"]) == (pulseID+1):
+                print "Lost pulse ",dataHeader["pid"]
+            pulseID = int(dataHeader["pid"])
 
             self.size = data.size*event_t.itemsize+sys.getsizeof(dataHeader)
             self.count = self.count+1
@@ -63,4 +65,5 @@ if __name__ == "__main__":
         print "Error, port required"
         sys.exit(2)
 
+    print event_t.itemsize
     main(sys.argv)
