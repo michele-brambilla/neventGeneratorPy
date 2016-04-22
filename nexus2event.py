@@ -129,6 +129,7 @@ def header(pulseID=1234,st=1457097133,nevents=1):
         "tr":10000,
         "ne":nevents,
         "ds":[{"ts":32,"cnt":1,"rok":1,"bsy":1,"sev":1,"pad":12,"x":16,"y":16},296]}
+
     return dataHeader
 
 
@@ -144,3 +145,24 @@ def loadNeXus2event(source):
         return loadRITA2(source)
 
     raise NotImplementedError("Detector not implemented")
+
+
+
+def event2debug(d):
+    o = np.empty([2*d.size,1],dtype=neventarray.debug_t)
+    dev = 0
+
+    for count in range(d.size):        
+        o[2*count  ]["ts"] = d[count]["ts"]
+        o[2*count+1]["ts"] = d[count]["ts"]
+        o[2*count  ]["other"] = ( (d[count]["sync"]       << 16) + 
+                                  (np.random.randint(2)*2 << 12) +
+                                  (d[count]["y"]          <<  0) );
+        o[2*count+1]["other"] = ( (d[count]["sync"]       << 16) + 
+                                  (1                      << 12) +
+                                  (d[count]["x"]          <<  0) );
+
+    for c in o[:10]:
+        print c
+
+    return o

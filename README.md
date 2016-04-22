@@ -7,13 +7,13 @@ Python implementation of neventGenerator. Works with both non triggered generato
 
 and triggered:
 
-(server side)   `el737counter.py <port (default=62001)>`
+(server side)   `el737generator.py <port (default=62001)>`
 (receiver side) `el737counter_recv.py <port  (default=62000)>`
 (trigger)       `telnet <ip> <port> -> run/pause`
 
 (or any combination)
 
-`el737counter.py` requires to be initiliased and executed with the followings:
+`el737generator.py` requires to be initiliased and executed with the followings:
 
 `init <NeXus file> <port> <multiplier>`
 `run`

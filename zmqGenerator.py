@@ -24,27 +24,38 @@ def usage() :
 
 class generatorSource:
 
-    def __init__ (self,source,port,multiplier,mock=False):
+    def __init__ (self,source,port,multiplier,debug_data=False,mock=False):
         self.source = source
         self.port = port
         self.multiplier = multiplier
+        self.do_debug = debug_data
         self.context = zmq.Context()
         self.data = self.load(mock)
         self.socket = self.connect()
         self.count = 0
         self.run()
 
+
+    def histo(self,data):
+        hist,bin_edge = np.histogram(data["x"], bins=np.arange(129))
+        for i in np.arange(128):
+            print 0,bin_edge[i],hist[i]
+        hist,bin_edge = np.histogram(data["y"], bins=np.arange(129))
+        for i in np.arange(128):
+            print 1,bin_edge[i],hist[i]
+
+
     def load(self,mock):
         if not mock:
             data = loadNeXus2event(self.source)
         else:
             data = self.dummy()
-
-        if self.multiplier > 1:
-            data = multiplyNEventArray(data,int(self.multiplier))
-
-        for i in data[0:100]:
-            print i["ts"], i["sync"], i["x"], i["y"]
+            
+        if self.do_debug:
+            data = event2debug(data)
+        else:
+            if self.multiplier > 1:
+                data = multiplyNEventArray(data,int(self.multiplier))
 
         return data
 
@@ -66,13 +77,19 @@ class generatorSource:
         ctime=time.time()
         pulseID=0
 
+        stream_frequency = 1./14.
+        if self.do_debug:
+            stream_frequency = 0.5
+
         print sys.getsizeof(data)
-        print data.size*event_t.itemsize/(1024.*1024.),"MB"
+        print data.size*data.dtype.itemsize/(1024.*1024.),"MB"
 
         while(True):
             itime = time.time()
             dataHeader=header(pulseID,itime,data.shape[0])
-            
+            if self.do_debug:
+                dataHeader["mode"] = "dbg"
+
             def send_data(socket,head):
                 socket.send_json(head)
                 socket.send(self.data)
@@ -81,7 +98,7 @@ class generatorSource:
             send_data(self.socket,dataHeader)
 
             elapsed = time.time() - itime
-            remaining = 1./14-elapsed
+            remaining = stream_frequency-elapsed
 
             if remaining > 0:
                 time.sleep (remaining)
@@ -89,7 +106,7 @@ class generatorSource:
             pulseID += 1
 
             if time.time()-ctime > 10 :
-                size = (data.size*event_t.itemsize+
+                size = (data.size*data.dtype.itemsize+
                         sys.getsizeof(dataHeader))
 
                 print "Sent ",self.count," events @ ",size*self.count/(10.*1e6)," MB/s"
@@ -99,7 +116,10 @@ class generatorSource:
 
 
 
-def main(argv,mock=False):
+
+
+
+def main(argv,debug=False,mock=False):
 
     source = argv[0]
     port = argv[1]
@@ -108,13 +128,13 @@ def main(argv,mock=False):
     if len(argv) > 2:
         multiplier = argv[2]
 
-    generatorSource(source,port,multiplier)
+    generatorSource(source,port,multiplier,debug,mock)
     
 
 
 if __name__ == "__main__":
     try:
-        opts,args = getopt.getopt(sys.argv[1:], "hm",["help","mock"])
+        opts,args = getopt.getopt(sys.argv[1:], "hdm",["help","debug","mock"])
     except getopt.GetoptError as err:
         print str(err)
         usage()
@@ -125,11 +145,14 @@ if __name__ == "__main__":
         exit(2)
     
     mock = False
+    debug = False
     for o,a in opts:
         if o in ("-h","--help"):
             usage()
             sys.exit()
         if o in ("-m","--mock"):
             mock = True
-            
-    main(args,mock)
+        if o in ("-d","--debug"):
+            debug = True
+
+    main(args,debug,mock)
