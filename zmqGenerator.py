@@ -68,10 +68,29 @@ class generatorSource:
 
     def connect(self):
         zmq_socket = self.context.socket(zmq.PUSH)
-        zmq_socket.bind("tcp://127.0.0.1:"+self.port)
+        zmq_socket.bind("tcp://*:"+self.port)
         zmq_socket.setsockopt(zmq.SNDHWM, 100)
         return zmq_socket
 
+
+    def mutation(self,d):
+
+        o = d
+        if  np.random.rand() > .999 :
+            o = np.delete(o,np.random.rand(o.size))
+            print "Error: missing value"
+        if  0.998 < np.random.rand() <= .999 :
+            x = np.random.randint(o.size)
+            o[x]["ts"] = 2<<32
+            print "Error: wrong timestamp"
+        if  0.997 < np.random.rand() <= .998 :
+            x = np.random.randint(o.size)
+            o[x]["sync"] = 1
+            print o[x]
+            print "Error: sync"
+
+        return o
+    
     def run(self):
         data = self.data
         ctime=time.time()
@@ -92,7 +111,7 @@ class generatorSource:
 
             def send_data(socket,head):
                 socket.send_json(head)
-                socket.send(self.data)
+                socket.send(self.mutation(self.data))
                 self.count += 1
                 
             send_data(self.socket,dataHeader)

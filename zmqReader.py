@@ -40,9 +40,21 @@ class generatorReceiver :
             dataHeader = self.socket.recv_json()
             buf = self.socket.recv(copy=True)
             data = np.frombuffer(buffer(buf),dtype=event_t)
-            for i in data:
-                print i["ts"], i["sync"], i["x"], i["y"]
+            
+#            for i in data:
+#                print i["ts"], i["sync"], i["x"], i["y"]
+#            condition = (data["ts"] > np.iinfo(np.uint32).max)
+#            s = data[np.where(condition)[0]]
+#            if s.size:
+#                print s
 
+            if data.size < dataHeader["ne"]:
+                print "pulse ",dataHeader["pid"]," incomplete"
+            for i in data:
+                if i["ts"] < 0:
+                    print "invalid timestamp",i
+    
+                
             timestamp = dataHeader["st"]
             if not int(dataHeader["pid"]) == (pulseID+1):
                 print "Lost pulse ",dataHeader["pid"]
