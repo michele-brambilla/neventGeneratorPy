@@ -6,7 +6,7 @@ import numpy as np
 
 import nxs
 import neventarray
-
+import time
 
 def loadAMOR(source) :
     f = nxs.open(source,'r')
@@ -96,6 +96,8 @@ def loadRITA2(source) :
     timestamp = np.sort(np.random.randint(2**32-1,size=dim[0]))
 
     nEvents = np.sum(data)
+
+    nEvents = 10
     signal = np.empty(nEvents,dtype=neventarray.event_t)
 
     nEv = 0
@@ -110,25 +112,14 @@ def loadRITA2(source) :
                 events = data[it][row][col]
                 if events > 0:
                     signal[nEv:nEv+events]["ts"] = timestamp[it]
-                    signal[nEv:nEv+events]["sync"] = 0 
-                    signal[nEv:nEv+events]["x"] = row
-                    signal[nEv:nEv+events]["y"] = col
-                    nEv = nEv+events
+                    signal[nEv:nEv+events]["data"] = (0 << 31 | 0 << 30 | 1 << 29 | 1 << 28 | 2 << 24 | col << 12 | row ) 
+#                    nEv = nEv+events
 
     return signal
 
 
-def header(pulseID=1234,st=1457097133,nevents=1):
-    dataHeader = {
-        "htype":"sinq-1.0",
-        "mode":"pos",
-        "pid":pulseID,
-        "hws":{"error":0,"overflow":0,"abc":432,"state1":1092,"state2":1092},
-        "st":st,
-        "ts":123456789,
-        "tr":10000,
-        "ne":nevents,
-        "ds":[{"ts":32,"cnt":1,"rok":1,"bsy":1,"sev":1,"pad":12,"x":16,"y":16},296]}
+def header(pulseID=1234,st=time.time(),ts=np.random.randint(3200000000),ne=0):
+    dataHeader = {"htype":"sinq-1.0","pid":pulseID,"st":st,"ts":ts,"tr":100000,"ds":[{"ts":32,"bsy":1,"cnt":1,"rok":1,"gat":1,"evt":4,"id1":12,"id0":12},ne],"hws":{"error":0,"overflow":0,"zmqerr":0,"lost":[0,1,2,3,4,5,6,7,8,9]}}
 
     return dataHeader
 
@@ -149,20 +140,20 @@ def loadNeXus2event(source):
 
 
 def event2debug(d):
-    o = np.empty([2*d.size,1],dtype=neventarray.debug_t)
+    o = np.empty([2*d.size,1],dtype=neventarray.event_t)
     dev = 0
 
-    for count in range(d.size):        
-        o[2*count  ]["ts"] = d[count]["ts"]
-        o[2*count+1]["ts"] = d[count]["ts"]
-        o[2*count  ]["other"] = ( (d[count]["sync"]       << 16) + 
-                                  (np.random.randint(2)*2 << 12) +
-                                  (d[count]["y"]          <<  0) );
-        o[2*count+1]["other"] = ( (d[count]["sync"]       << 16) + 
-                                  (1                      << 12) +
-                                  (d[count]["x"]          <<  0) );
-
-    for c in o[:10]:
-        print c
+#    for count in range(d.size):        
+#        o[2*count  ]["ts"] = d[count]["ts"]
+#        o[2*count+1]["ts"] = d[count]["ts"]
+#        o[2*count  ]["other"] = ( (d[count]["sync"]       << 16) + 
+#                                  (np.random.randint(2)*2 << 12) +
+#                                  (d[count]["y"]          <<  0) );
+#        o[2*count+1]["other"] = ( (d[count]["sync"]       << 16) + 
+#                                  (1                      << 12) +
+#                                  (d[count]["x"]          <<  0) );
+#
+#    for c in o[:10]:
+#        print c
 
     return o

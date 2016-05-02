@@ -46,24 +46,11 @@ class generatorSource:
 
 
     def load(self,mock):
-        if not mock:
-            data = loadNeXus2event(self.source)
-        else:
-            data = self.dummy()
+        data = loadNeXus2event(self.source)
             
-        if self.do_debug:
-            data = event2debug(data)
-        else:
-            if self.multiplier > 1:
-                data = multiplyNEventArray(data,int(self.multiplier))
+        if self.multiplier > 1:
+            data = multiplyNEventArray(data,int(self.multiplier))
 
-        return data
-
-    def dummy(self):
-        data = np.empty(shape=1,dtype=event_t)
-        data["ts"]=1234
-        data["x"] = 23
-        data["y"] = 4
         return data
 
     def connect(self):
@@ -100,18 +87,17 @@ class generatorSource:
         if self.do_debug:
             stream_frequency = 0.5
 
-        print sys.getsizeof(data)
-        print data.size*data.dtype.itemsize/(1024.*1024.),"MB"
+        print sys.getsizeof(self.data)
+        print self.data.size*self.data.dtype.itemsize/(1024.*1024.),"MB"
 
         while(True):
             itime = time.time()
-            dataHeader=header(pulseID,itime,data.shape[0])
-            if self.do_debug:
-                dataHeader["mode"] = "dbg"
+            dataHeader=header(pulseID,itime,12345678,self.data.shape[0])
 
             def send_data(socket,head):
                 socket.send_json(head)
-                socket.send(self.mutation(self.data))
+                socket.send(self.data)
+#                socket.send(self.mutation(self.data))
                 self.count += 1
                 
             send_data(self.socket,dataHeader)
@@ -125,7 +111,7 @@ class generatorSource:
             pulseID += 1
 
             if time.time()-ctime > 10 :
-                size = (data.size*data.dtype.itemsize+
+                size = (self.data.size*self.data.dtype.itemsize+
                         sys.getsizeof(dataHeader))
 
                 print "Sent ",self.count," events @ ",size*self.count/(10.*1e6)," MB/s"

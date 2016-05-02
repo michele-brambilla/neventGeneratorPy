@@ -6,6 +6,8 @@ import json
 import threading
 
 from neventarray import *
+event_t = np.dtype([("ts",np.uint32),
+                    ("data",np.uint32)])
 
 class generatorReceiver :
     def __init__ (self, fulladdress) :
@@ -48,11 +50,15 @@ class generatorReceiver :
 #            if s.size:
 #                print s
 
-            if data.size < dataHeader["ne"]:
+            ne = dataHeader["ds"][1]
+            if data.size < ne:
                 print "pulse ",dataHeader["pid"]," incomplete"
-            for i in data:
-                if i["ts"] < 0:
-                    print "invalid timestamp",i
+
+            for i in  data:
+                print i["ts"], (i["data"] & 0xfff), (i["data"] & 0xfff000) >> 12,(i["data"] & 0xf000000) >> 24,(i["data"] & 0x1000000) >> 28,(i["data"] & 0x2000000) >> 29 ,(i["data"] & 0x4000000) >> 30,(i["data"] & 0x8000000) >> 31
+                
+#                                if ts < 0:
+#                    print "invalid timestamp",i
     
                 
             timestamp = dataHeader["st"]
