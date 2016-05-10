@@ -97,7 +97,6 @@ def loadRITA2(source) :
 
     nEvents = np.sum(data)
 
-    nEvents = 10
     signal = np.empty(nEvents,dtype=neventarray.event_t)
 
     nEv = 0
@@ -106,6 +105,9 @@ def loadRITA2(source) :
     row = np.uint16
     col = np.uint16
 
+    m = np.sum(data,0)
+    np.savetxt('orig.out',m,delimiter=' ')
+
     for row in range(dim[1]):
         for col in range(dim[2]):
             for it in range(dim[0]):
@@ -113,13 +115,14 @@ def loadRITA2(source) :
                 if events > 0:
                     signal[nEv:nEv+events]["ts"] = timestamp[it]
                     signal[nEv:nEv+events]["data"] = (0 << 31 | 0 << 30 | 1 << 29 | 1 << 28 | 2 << 24 | col << 12 | row ) 
-#                    nEv = nEv+events
+                    nEv = nEv+events
+
 
     return signal
 
 
 def header(pulseID=1234,st=time.time(),ts=np.random.randint(3200000000),ne=0):
-    dataHeader = {"htype":"sinq-1.0","pid":pulseID,"st":st,"ts":ts,"tr":100000,"ds":[{"ts":32,"bsy":1,"cnt":1,"rok":1,"gat":1,"evt":4,"id1":12,"id0":12},ne],"hws":{"error":0,"overflow":0,"zmqerr":0,"lost":[0,1,2,3,4,5,6,7,8,9]}}
+    dataHeader = '{"htype\":"sinq-1.0","pid":'+str(pulseID)+',st":'+str(st)+',"ts":'+str(ts)+',"tr":100000,"ds":[{"ts":32,"bsy":1,"cnt":1,"rok":1,"gat":1,"evt":4,"id1":12,"id0":12},'+str(ne)+'],"hws":{"error":0,"overflow":0,"zmqerr":0,"lost":[0,1,2,3,4,5,6,7,8,9]}}\0'
 
     return dataHeader
 

@@ -5,7 +5,10 @@ import numpy as np
 import json
 import threading
 
-from neventarray import *
+#from neventarray import *
+def multiplyNEventArray(data,multiplier) :
+    return np.tile(data,multiplier)
+
 event_t = np.dtype([("ts",np.uint32),
                     ("data",np.uint32)])
 
@@ -41,41 +44,30 @@ class generatorReceiver :
 
             dataHeader = self.socket.recv_json()
             buf = self.socket.recv(copy=True)
-            data = np.frombuffer(buffer(buf),dtype=event_t)
-            
-#            for i in data:
-#                print i["ts"], i["sync"], i["x"], i["y"]
-#            condition = (data["ts"] > np.iinfo(np.uint32).max)
-#            s = data[np.where(condition)[0]]
-#            if s.size:
-#                print s
-
             ne = dataHeader["ds"][1]
-            if data.size < ne:
-                print "pulse ",dataHeader["pid"]," incomplete"
+            
+            if zmq.getsockopt(zmq.RECVMORE):
+                data = np.frombuffer(buffer(buf),dtype=event_t)
+            
+                if data.size < ne:
+                    print "pulse ",dataHeader["pid"]," incomplete"
 
-            for i in  data:
-                print i["ts"], (i["data"] & 0xfff), (i["data"] & 0xfff000) >> 12,(i["data"] & 0xf000000) >> 24,(i["data"] & 0x1000000) >> 28,(i["data"] & 0x2000000) >> 29 ,(i["data"] & 0x4000000) >> 30,(i["data"] & 0x8000000) >> 31
+                    for i in  data:
+                        print i["ts"], (i["data"] & 0xfff), (i["data"] & 0xfff000) >> 12,(i["data"] & 0xf000000) >> 24,(i["data"] & 0x1000000) >> 28,(i["data"] & 0x2000000) >> 29 ,(i["data"] & 0x4000000) >> 30,(i["data"] & 0x8000000) >> 31
                 
-#                                if ts < 0:
-#                    print "invalid timestamp",i
-    
                 
-            timestamp = dataHeader["st"]
-            if not int(dataHeader["pid"]) == (pulseID+1):
-                print "Lost pulse ",dataHeader["pid"]
-            pulseID = int(dataHeader["pid"])
+                    timestamp = dataHeader["st"]
+                    if not int(dataHeader["pid"]) == (pulseID+1):
+                        print "Lost pulse ",dataHeader["pid"]
+                    pulseID = int(dataHeader["pid"])
 
-            self.size = data.size*event_t.itemsize+sys.getsizeof(dataHeader)
-            self.count = self.count+1
+                    self.size = data.size*event_t.itemsize+sys.getsizeof(dataHeader)
+                    self.count = self.count+1
 
 
 def main(argv):
     fulladdress = argv[1]
-
     generatorReceiver(fulladdress)
-
-
 
 
 if __name__ == "__main__":
@@ -83,5 +75,4 @@ if __name__ == "__main__":
         print "Error, port required"
         sys.exit(2)
 
-    print event_t.itemsize
     main(sys.argv)
