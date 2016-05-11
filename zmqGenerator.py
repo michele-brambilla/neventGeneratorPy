@@ -78,21 +78,26 @@ class generatorSource:
 
         ctime=time.time()
         pulseID=0
-        stream_frequency = 1./14.
+
+        s = 1e-6*(data.nbytes+len(rh.header(pulseID,ctime,12345678,data.shape[0])))
+        print "size = ",s, "MB; expected bw = ",s * ctl["rate"], "MB/s"
 
         while(ctl["run"] != "stop"):
+            stream_frequency = 1./ctl["rate"]
+
             itime = time.time()
             if ctl["run"] != "pause":
                 dataHeader=rh.header(pulseID,itime,12345678,data.shape[0])
             else:
                 dataHeader=rh.header(pulseID,itime,12345678,0)
 
-            data = rh.set_ds(data,ctl)
+#            data = rh.set_ds(data,ctl)
 
             def send_data(socket,head):
                 if ctl["run"] == "run": 
                     socket.send(head,zmq.SNDMORE)
                     socket.send(self.mutation(ctl,data))
+#                    socket.send(data)
                     self.count += 1
                 else:
                     socket.send(head)
