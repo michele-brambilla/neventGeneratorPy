@@ -6,5 +6,5 @@
         "gat"      : 1,
         "evt"      : 2,
         "mutation" : "none",
-        "rate"     : 200
+        "rate"     : 100
 }

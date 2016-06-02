@@ -82,47 +82,45 @@ class generatorSource:
         s = 1e-6*(data.nbytes+len(rh.header(pulseID,ctime,12345678,data.shape[0])))
         print "size = ",s, "MB; expected bw = ",s * ctl["rate"], "MB/s"
 
-        while(ctl["run"] != "stop"):
-            stream_frequency = 1./ctl["rate"]
-
-            itime = time.time()
-            if ctl["run"] != "pause":
-                dataHeader=rh.header(pulseID,itime,12345678,data.shape[0])
-            else:
-                dataHeader=rh.header(pulseID,itime,12345678,0)
-
-#            data = rh.set_ds(data,ctl)
-
-            def send_data(socket,head):
-                if ctl["run"] == "run": 
-                    socket.send(head,zmq.SNDMORE)
-                    socket.send(self.mutation(ctl,data))
-#                    socket.send(data)
-                    self.count += 1
-                else:
-                    socket.send(head)
-                    self.count += 1
-
-            send_data(self.socket,dataHeader)
-
-            elapsed = time.time() - itime
-            remaining = stream_frequency-elapsed
-
-            if remaining > 0:
-                time.sleep (remaining)
-
-            pulseID += 1
+        while True :
             ctl = rh.control()
-            if time.time()-ctime > 10 :
-                size = (data.size*data.dtype.itemsize+
-                        sys.getsizeof(dataHeader))
+            data = rh.set_ds(data,ctl)
 
-                print "Sent ",self.count," events @ ",size*self.count/(10.*1e6)," MB/s"
-                self.count = 0
-                ctime = time.time()
+            while(ctl["run"] != "stop"):
+                stream_frequency = 1./ctl["rate"]
 
+                itime = time.time()
+                if ctl["run"] != "pause":
+                    dataHeader=rh.header(pulseID,itime,1234,data.shape[0])
+                else:
+                    dataHeader=rh.header(pulseID,itime,1234,0)
 
+                def send_data(socket,head):
+                    if ctl["run"] == "run": 
+                        socket.send(head,zmq.SNDMORE)
+                        socket.send(self.mutation(ctl,data))
+                        self.count += 1
+                    else:
+                        socket.send(head)
+                        self.count += 1
+                        
+                send_data(self.socket,dataHeader)
+                
+                elapsed = time.time() - itime
+                remaining = stream_frequency-elapsed
+                
+                if remaining > 0:
+                    time.sleep (remaining)
 
+                pulseID += 1
+                ctl = rh.control()
+                if time.time()-ctime > 10 :
+                    size = (data.size*data.dtype.itemsize+
+                            sys.getsizeof(dataHeader))
+                    
+                    print "Sent ",self.count," events @ ",size*self.count/(10.*1e6)," MB/s"
+                    self.count = 0
+                    ctime = time.time()
 
 
 
