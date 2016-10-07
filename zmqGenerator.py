@@ -31,7 +31,6 @@ class generatorSource:
         self.port = port
         self.context = zmq.Context()
         self.socket = self.connect()
-#        self.data = self.load(multiplier)
         self.count = 0
         self.run(self.load(multiplier))
 

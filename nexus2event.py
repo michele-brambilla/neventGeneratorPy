@@ -114,10 +114,10 @@ def loadRITA2(source) :
                 events = data[it][row][col]
                 if events > 0:
                     signal[nEv:nEv+events]["ts"] = timestamp[it]
-                    signal[nEv:nEv+events]["data"] = (0 << 31 | 0 << 30 | 1 << 29 | 1 << 28 | 2 << 24 | col << 12 | row ) 
+                    signal[nEv:nEv+events]["data"] = (1 << 31 | 1 << 30 | 1 << 29 | 1 << 28 | 4 << 24 | col << 12 | row ) 
                     nEv = nEv+events
 
-
+    print signal[0:9]
     return signal
 
 
